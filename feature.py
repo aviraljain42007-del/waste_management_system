@@ -1,8 +1,6 @@
 import mysql.connector
 from db_config import get_db_connection
 from datetime import datetime
-
-# Auto category detection (simple logic)
 def categorise_waste(description: str) -> str:
     desc = description.lower()
     if "plastic" in desc:
@@ -14,46 +12,27 @@ def categorise_waste(description: str) -> str:
     elif "food" in desc or "organic" in desc:
         return "organic"
     return "mixed"
-
-
-# ------------------------------------------------------
-# CREATE PICKUP REQUEST
-# ------------------------------------------------------
 def create_pickup_request(user_id, items, address, sched_datetime):
     conn = get_db_connection()
     if not conn:
         return {"success": False, "error": "Database connection failed"}
-
     cur = conn.cursor()
-
     mysql_date = sched_datetime.strftime("%Y-%m-%d %H:%M:%S")
     category = categorise_waste(items)
-
     try:
         cur.execute("""
             INSERT INTO pickup_requests 
             (user_id, items, pickup_address, pickup_date, category, status)
             VALUES (%s, %s, %s, %s, %s, %s)
         """, (user_id, items, address, mysql_date, category, "scheduled"))
-
         conn.commit()
-
-        # Fetch inserted row
         cur.execute("SELECT * FROM pickup_requests WHERE request_id = LAST_INSERT_ID()")
         row = cur.fetchone()
-
         return {"success": True, "request": row}
-
     except mysql.connector.Error as err:
         return {"success": False, "error": str(err)}
-
     finally:
         conn.close()
-
-
-# ------------------------------------------------------
-# GET USER REQUESTS  (FIXED – NO INDEX ERROR)
-# ------------------------------------------------------
 def get_requests_for_user(user_id):
     conn = get_db_connection()
     cur = conn.cursor()
@@ -70,11 +49,6 @@ def get_requests_for_user(user_id):
     cur.close()
     conn.close()
     return rows
-
-
-# ------------------------------------------------------
-# UPDATE STATUS (ADMIN)
-# ------------------------------------------------------
 def update_request_status(request_id, new_status, picked_at=None, report_wrong=False):
     conn = get_db_connection()
     cur = conn.cursor()
@@ -107,11 +81,6 @@ def update_request_status(request_id, new_status, picked_at=None, report_wrong=F
 
     finally:
         conn.close()
-
-
-# ------------------------------------------------------
-# GET FINES
-# ------------------------------------------------------
 def get_fines_for_user(user_id):
     conn = get_db_connection()
     cur = conn.cursor()
@@ -127,11 +96,6 @@ def get_fines_for_user(user_id):
     cur.close()
     conn.close()
     return rows
-
-
-# ------------------------------------------------------
-# REPORT GENERATION
-# ------------------------------------------------------
 def generate_report(period="daily"):
     conn = get_db_connection()
     cur = conn.cursor()

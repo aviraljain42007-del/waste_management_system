@@ -1,4 +1,3 @@
-# main.py - CLI runner for the system (fixed)
 from login_register import register_flow, login_flow
 import feature
 from datetime import datetime, timedelta, timezone
@@ -48,17 +47,12 @@ def user_loop(user):
             item = input("Describe the waste items (e.g. '3 plastic bottles'): ").strip()
             address = input("Pickup address: ").strip()
             date_str = input("Preferred pickup date (YYYY-MM-DD) or leave blank for tomorrow: ").strip()
-
-            # Use timezone-aware datetime to avoid DeprecationWarning
             if not date_str:
                 sched = datetime.now(timezone.utc) + timedelta(days=1)
             else:
                 try:
-                    # fromisoformat supports YYYY-MM-DD and YYYY-MM-DDTHH:MM:SS
-                    # ensure we attach UTC if user entered only a date
                     tmp = datetime.fromisoformat(date_str)
                     if tmp.tzinfo is None:
-                        # treat as local naive datetime -> convert to UTC-aware at midnight
                         sched = datetime(tmp.year, tmp.month, tmp.day, tzinfo=timezone.utc)
                     else:
                         sched = tmp.astimezone(timezone.utc)
@@ -67,18 +61,13 @@ def user_loop(user):
                     sched = datetime.now(timezone.utc) + timedelta(days=1)
 
             res = feature.create_pickup_request(user['id'], item, address, sched)
-
-            # feature.create_pickup_request returns dict {"success": True/False, "request": row}
             if res.get("success"):
                 row = res.get("request")
                 if isinstance(row, (list, tuple)):
-                    # row may be SELECT * or a specific SELECT order depending on your feature.py / DB schema
                     rid = row[0] if len(row) > 0 else "(unknown)"
-                    # attempt to fetch category from likely indices (many schemas put category around index 5)
                     category = None
                     if len(row) >= 6:
                         category = row[5]
-                    # fallback: try to find a known category string inside the tuple
                     if not category:
                         for v in row:
                             if isinstance(v, str) and v.lower() in ('plastic','paper','glass','organic','mixed','metal','hazardous'):
@@ -86,7 +75,6 @@ def user_loop(user):
                                 break
                     print(f"Pickup request created (id={rid}). Category detected: {category}")
                 else:
-                    # if feature returned something else
                     print("Pickup request created. (created row returned in unexpected format)", row)
             else:
                 print("Could not create request.", res.get("error", res))
@@ -97,9 +85,6 @@ def user_loop(user):
                 print("No requests yet.")
             else:
                 for r in rows:
-                    # Be defensive about the tuple shape
-                    # Expected shape from feature.get_requests_for_user (final version): 
-                    # (request_id, category, pickup_address, pickup_date, items, status, picked_at, reported_wrong)
                     try:
                         if isinstance(r, (list, tuple)):
                             if len(r) >= 8:
@@ -107,7 +92,6 @@ def user_loop(user):
                                       "| Scheduled:", r[3], "| Items:", r[4], "| Status:", r[5],
                                       "| Picked at:", r[6], "| Reported wrong:", bool(r[7]))
                             elif len(r) >= 6:
-                                # fallback ordering: request_id, items, pickup_address, pickup_date, category, status
                                 print("ID:", r[0], "| Category:", r[4] if len(r) > 4 else r[1],
                                       "| Address:", r[2] if len(r) > 2 else "(unknown)",
                                       "| Scheduled:", r[3] if len(r) > 3 else "(unknown)",
@@ -130,7 +114,6 @@ def user_loop(user):
             print("New status options: picked / canceled / reported_wrong / scheduled")
             new_status = input("New status: ").strip()
             if new_status == "picked":
-                # optionally enter actual picked datetime
                 date_s = input("Picked at (YYYY-MM-DD HH:MM) or leave blank for now: ").strip()
                 if date_s:
                     try:
@@ -154,7 +137,6 @@ def user_loop(user):
                 print("No fines.")
             else:
                 for f in fines:
-                    # expected: fine_id, request_id, amount, reason, fine_date, paid
                     if isinstance(f, (list, tuple)) and len(f) >= 6:
                         print("Fine ID:", f[0], "| Request:", f[1], "| Amount:", f[2], "| Reason:", f[3], "| Date:", f[4], "| Paid:", bool(f[5]))
                     else:
@@ -179,18 +161,13 @@ def print_report(rpt):
     if not rpt:
         print("Empty report.")
         return
-
-    # Accept multiple possible report shapes
     if isinstance(rpt, dict):
-        # New compact shape returned by feature.generate_report
         if 'period' in rpt and ('total_fines' in rpt or 'count' in rpt):
             print(f"\nReport ({rpt.get('period')})")
             print("Total fines:", rpt.get('total_fines'))
             print("Count:", rpt.get('count'))
             print("----\n")
             return
-
-        # Old/UI-rich shape
         if all(k in rpt for k in ('period_start','total_requests')):
             print(f"\nReport starting {rpt.get('period_start')}")
             print("Total requests:", rpt.get('total_requests'))
@@ -203,8 +180,6 @@ def print_report(rpt):
                 print(f"  {cat}: {cnt}")
             print("----\n")
             return
-
-    # Fallback: just print raw
     print("Report output (raw):", rpt)
 
 if __name__ == "__main__":

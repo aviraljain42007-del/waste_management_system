@@ -22,7 +22,6 @@ def register_flow():
     finally:
         conn.close()
 
-
 def login_flow():
     print("\n--- Login ---")
     username = input("Username: ").strip()
