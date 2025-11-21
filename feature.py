@@ -2,6 +2,10 @@ import mysql.connector
 from db_config import get_db_connection
 from datetime import datetime
 def categorise_waste(description: str) -> str:
+    """
+    Categorizes the waste based on keywords in the description.
+    Returns a string category.
+    """
     desc = description.lower()
     if "plastic" in desc:
         return "plastic"
@@ -13,6 +17,10 @@ def categorise_waste(description: str) -> str:
         return "organic"
     return "mixed"
 def create_pickup_request(user_id, items, address, sched_datetime):
+    """
+    Creates a new pickup request for the user.
+    Returns a dict with success status and request row or error.
+    """
     conn = get_db_connection()
     if not conn:
         return {"success": False, "error": "Database connection failed"}
@@ -20,12 +28,14 @@ def create_pickup_request(user_id, items, address, sched_datetime):
     mysql_date = sched_datetime.strftime("%Y-%m-%d %H:%M:%S")
     category = categorise_waste(items)
     try:
+        # Insert the pickup request into the database
         cur.execute("""
             INSERT INTO pickup_requests 
             (user_id, items, pickup_address, pickup_date, category, status)
             VALUES (%s, %s, %s, %s, %s, %s)
         """, (user_id, items, address, mysql_date, category, "scheduled"))
         conn.commit()
+        # Retrieve the newly created request
         cur.execute("SELECT * FROM pickup_requests WHERE request_id = LAST_INSERT_ID()")
         row = cur.fetchone()
         return {"success": True, "request": row}
@@ -34,6 +44,10 @@ def create_pickup_request(user_id, items, address, sched_datetime):
     finally:
         conn.close()
 def get_requests_for_user(user_id):
+    """
+    Retrieves all pickup requests for a given user, ordered by date.
+    Returns a list of request rows.
+    """
     conn = get_db_connection()
     cur = conn.cursor()
 
@@ -50,6 +64,11 @@ def get_requests_for_user(user_id):
     conn.close()
     return rows
 def update_request_status(request_id, new_status, picked_at=None, report_wrong=False):
+    """
+    Updates the status of a pickup request.
+    If status is 'picked', also updates picked_at and reported_wrong fields.
+    Returns a dict with success status or error.
+    """
     conn = get_db_connection()
     cur = conn.cursor()
 
@@ -82,6 +101,10 @@ def update_request_status(request_id, new_status, picked_at=None, report_wrong=F
     finally:
         conn.close()
 def get_fines_for_user(user_id):
+    """
+    Retrieves all fines for a given user, ordered by date.
+    Returns a list of fine rows.
+    """
     conn = get_db_connection()
     cur = conn.cursor()
 
@@ -97,6 +120,10 @@ def get_fines_for_user(user_id):
     conn.close()
     return rows
 def generate_report(period="daily"):
+    """
+    Generates a report of fines for the given period (daily or weekly).
+    Returns a dict with period, total fines amount, and count.
+    """
     conn = get_db_connection()
     cur = conn.cursor()
 
